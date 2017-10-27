@@ -1,0 +1,270 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" /> 
+    <title>订餐系统</title>
+    <script type="text/javascript" src="./vue.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="./iview.css">
+    <script type="text/javascript" src="./iview.min.js"></script>
+   	<script src="./jquery-2.0.0.min.js"></script>
+	
+<style type="text/css">	
+
+</style>
+	
+</head>
+<body>
+
+<div id="app" style="margin:200px;margin-top: 10px">
+
+     <Card style="width:98%">
+        <div style="text-align:center;font-size: 20px">
+            <h2>晚餐预定（电商项目组）</h2>
+        </div>
+    </Card>
+    <Card style="width:98%">
+    	<Auto-Complete
+            v-model="inputValue"
+            :data="userNames"
+            icon="ios-search"
+            :filter-method="filterMethod"
+            placeholder="自动完成"
+            style="width:30%">
+        </Auto-Complete>
+    	<i-button type="success" @click="handleAdd" >预定晚餐</i-button>
+        
+        <br/><br/>
+    	<i-table size="small" :columns="columns" :data="orderUsers"></i-table>
+        <Tag style="float:right" >{{orderNum}}人已预订</Tag><br/>
+	</Card>
+	
+	<Modal v-model="modal" width="360">
+        <p slot="header" style="color:#f60;text-align:center">
+            <Icon type="information-circled"></Icon>
+            <span>删除确认</span>
+        </p>
+        <div style="text-align:center">
+            <span style="font-size:13px">晚上要饿肚子啦！</span>
+        </div>
+        <div slot="footer">
+            <i-button icon="android-delete" type="error" size="large" long :loading="modal_loading" @click="remove()">删除</i-button>
+        </div>
+    </Modal>
+    
+</div>
+
+<script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+        	modal: false,
+        	delUserName: '',
+        	modal_loading: false,
+            orderNum: 0,
+        	inputValue: '',
+        	userNames: [],
+            columns: [
+                    {
+                        title: '编号',
+                        type: 'index',
+                        width: 200,
+                        align: 'center'
+                    },
+                    {
+                        title: '姓名',
+                        key: 'userName'
+                    },
+                    {
+                        title: '预定时间',
+                        key: 'createDate'
+                    },
+                    {
+                        title: '操作',
+                        key: 'action',
+                        width: 150,
+                        align: 'center',
+                        render: (h, params) => {
+                            return h('div', [
+                                h('Button', {
+                                    props: {
+                                        type: 'error',
+                                        size: 'small'
+                                    },
+                                    on: {
+                                        click: () => {
+                                        	app.$data.modal=true;
+                                        	app.$data.delUserName = params.row.userName;
+                                        }
+                                    }
+                                }, '删除')
+                            ]);
+                        }
+                    }
+                ],
+            orderUsers: [
+                     
+            ]
+        },
+        methods: {
+        	handleAdd () {
+                if (this.inputValue=="") {
+                    this.$Notice.error({
+                        title: '请输入姓名！',
+                        duration : 3,
+                        desc:  '' 
+                    });
+                    return;
+                }
+                //用户是否已经预定
+                var isFixed = false;
+                for ( var i = 0; i < this.orderUsers.length; i++) {  
+                    var userName = this.orderUsers[i].userName;   
+                    if ( userName == this.inputValue ) {
+                        isFixed = true;
+                        break;
+                    }
+                }  
+
+                if (isFixed) {
+                    // this.$Message.success(this.inputValue+"已预订！");
+                    this.$Notice.error({
+                        title: this.inputValue+"已预订！",
+                        duration : 3,
+                        desc:  '' 
+                    });
+                }else{
+                	 var that=this;
+                	$.ajax({
+             			url:"/order/addOrder",
+             			type:"post",
+             			data:{
+             				userName:this.inputValue
+             			},
+             			dataType:"json",
+             			success:function(response){
+             				that.orderUsers=response.orderUsers;
+             				that.orderNum=response.orderNum;
+             				
+             				if(response.result == "success"){
+	                         	that.$Notice.success({
+	                                 title: that.inputValue+"预定成功！",
+	                                 duration : 3,
+	                                 desc:  '' 
+	                            });
+             				}else{
+             					that.$Notice.error({
+	                                 title: response.promptMsg,
+	                                 duration : 3,
+	                                 desc:  '' 
+	                            });
+             				}
+             				that.inputValue = "";
+             			},
+             			error: function(XMLHttpRequest, textStatus, errorThrown){					
+             			},
+             			beforeSend:function(XMLHttpRequest){
+            	        },
+            	       	complete:function(XMLHttpRequest,textStatus){
+            	       	}
+                    })
+                   
+                    
+             				
+                   /*  this.userNames.push({
+                        name: this.inputValue,
+                        createTime: getLocalTime()
+                    });
+                    this.orderNum++; */
+                    /* this.$Notice.success({
+                        title: this.inputValue+"预定成功！",
+                        duration : 3,
+                        desc:  '' 
+                    }); */
+                    // this.data3.push(this.inputValue);
+                }
+                
+            },
+			filterMethod (value, option) {
+                return option.toUpperCase().indexOf(value.toUpperCase()) !== -1;
+            }
+        }
+    })
+
+    function remove () {
+    	app.$data.modal_loading = true;
+        $.ajax({
+ 			url:"/order/delOrder",
+ 			type:"post",
+ 			data:{
+ 				userName:app.$data.delUserName
+ 			},
+ 			dataType:"json",
+ 			success:function(response){	
+ 				app.$data.orderUsers=response.orderUsers;
+ 				app.$data.orderNum=response.orderNum;
+ 				
+ 				if(response.result == "success"){
+ 					app.$data.modal=false;
+ 		       		app.$data.modal_loading = false;
+ 		       		app.$Message.success('删除成功');
+ 				}else{
+ 					app.$data.modal=false;
+ 		       		app.$data.modal_loading = false;
+ 		       		app.$Message.error({
+ 		                content: response.promptMsg,
+ 		                duration: 3
+ 		            });
+ 				}
+ 			},
+ 			error: function(XMLHttpRequest, textStatus, errorThrown){					
+ 			},
+ 			beforeSend:function(XMLHttpRequest){
+	        },
+	       	complete:function(XMLHttpRequest,textStatus){
+	       		/* app.$data.modal=false;
+	       		app.$data.modal_loading = false;
+	       		app.$Message.success('删除成功'); */
+	       	}
+        });
+    }
+
+    function getLocalTime() {  
+        var date = new Date();
+        var year = date.getFullYear();
+        var month = date.getMonth()+1;
+        var day = date.getDate();
+        var hour = date.getHours();
+        var minute = date.getMinutes();
+        var second = date.getSeconds()
+        return year+"-"+month+"-"+day+" "+hour+":"+minute+":"+second;
+    } 
+    
+    function init(){
+        $.ajax({
+ 			url:"/order/initUserData",
+ 			type:"post",
+ 			dataType:"json",
+ 			success:function(response){	
+ 				app.$data.userNames=response.userList;
+ 				app.$data.orderNum=response.orderNum;
+ 				if(response.orderNum > 0){
+ 					app.$data.orderUsers=response.orderUsers;
+ 				}else{
+ 					app.$data.orderUsers=[];
+ 				}
+ 			},
+ 			error: function(XMLHttpRequest, textStatus, errorThrown){					
+ 			},
+ 			beforeSend:function(XMLHttpRequest){
+	        },
+	       	complete:function(XMLHttpRequest,textStatus){
+	       	}
+        })
+    }
+    init();
+    
+  </script>
+</body>
+</html>
+
